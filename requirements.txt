@@ -1,6 +1,10 @@
+google-genai
 langgraph
 langchain[google-genai]
+langchain-google-community
 python-dotenv
 fastapi
 uvicorn[standard]
 pydantic
+rich
+pillow
