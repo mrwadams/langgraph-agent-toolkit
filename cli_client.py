@@ -26,6 +26,7 @@ class ChatbotClient:
         self.base_url = base_url.rstrip('/')
         self.console = Console() if RICH_AVAILABLE else None
         self.streaming = streaming
+        self.thread_id = None  # Store thread_id for conversation continuity
     
     def test_connection(self) -> bool:
         """Test if the API server is running"""
@@ -45,22 +46,38 @@ class ChatbotClient:
                 spinner_text = "Thinking..."
                 if self.console and RICH_AVAILABLE:
                     with Live(Spinner("dots", text=spinner_text), console=self.console, refresh_per_second=10):
+                        request_data = {"message": message}
+                        if self.thread_id:
+                            request_data["thread_id"] = self.thread_id
+                        
                         response = requests.post(
                             f"{self.base_url}/chat",
-                            json={"message": message},
+                            json=request_data,
                             headers={"Content-Type": "application/json"}
                         )
                         response.raise_for_status()
                         data = response.json()
+                        
+                        # Update thread_id from response
+                        if "thread_id" in data:
+                            self.thread_id = data["thread_id"]
                 else:
                     print(f"{spinner_text}", end="", flush=True)
+                    request_data = {"message": message}
+                    if self.thread_id:
+                        request_data["thread_id"] = self.thread_id
+                    
                     response = requests.post(
                         f"{self.base_url}/chat",
-                        json={"message": message},
+                        json=request_data,
                         headers={"Content-Type": "application/json"}
                     )
                     response.raise_for_status()
                     data = response.json()
+                    
+                    # Update thread_id from response
+                    if "thread_id" in data:
+                        self.thread_id = data["thread_id"]
                     print("\r" + " " * len(spinner_text) + "\r", end="", flush=True)  # Clear spinner
                 
                 return data["response"], data.get("tools_used", [])
@@ -72,11 +89,15 @@ class ChatbotClient:
         try:
             # Show thinking spinner
             spinner_text = "Thinking..."
+            request_data = {"message": message}
+            if self.thread_id:
+                request_data["thread_id"] = self.thread_id
+                
             if self.console and RICH_AVAILABLE:
                 with Live(Spinner("dots", text=spinner_text), console=self.console, refresh_per_second=10) as live:
                     response = requests.post(
                         f"{self.base_url}/chat/stream",
-                        json={"message": message},
+                        json=request_data,
                         headers={"Content-Type": "application/json"},
                         stream=True
                     )
@@ -88,7 +109,7 @@ class ChatbotClient:
                 print(f"{spinner_text}", end="", flush=True)
                 response = requests.post(
                     f"{self.base_url}/chat/stream",
-                    json={"message": message},
+                    json=request_data,
                     headers={"Content-Type": "application/json"},
                     stream=True
                 )
@@ -107,7 +128,12 @@ class ChatbotClient:
                         try:
                             data = json.loads(line_str[6:])  # Remove 'data: ' prefix
                             
-                            if data.get("type") == "tools":
+                            if data.get("type") == "thread":
+                                # Update thread_id from stream
+                                if "thread_id" in data:
+                                    self.thread_id = data["thread_id"]
+                            
+                            elif data.get("type") == "tools":
                                 tools_used = data.get("tools", [])
                                 # Display tool indicator in green if Rich is available
                                 if tools_used:
@@ -194,24 +220,37 @@ class ChatbotClient:
         try:
             # Show thinking spinner
             spinner_text = "Thinking..."
+            request_data = {"messages": messages}
+            if self.thread_id:
+                request_data["thread_id"] = self.thread_id
+                
             if self.console and RICH_AVAILABLE:
                 with Live(Spinner("dots", text=spinner_text), console=self.console, refresh_per_second=10):
                     response = requests.post(
                         f"{self.base_url}/chat/history",
-                        json={"messages": messages},
+                        json=request_data,
                         headers={"Content-Type": "application/json"}
                     )
                     response.raise_for_status()
                     data = response.json()
+                    
+                    # Update thread_id from response
+                    if "thread_id" in data:
+                        self.thread_id = data["thread_id"]
             else:
                 print(f"{spinner_text}", end="", flush=True)
                 response = requests.post(
                     f"{self.base_url}/chat/history",
-                    json={"messages": messages},
+                    json=request_data,
                     headers={"Content-Type": "application/json"}
                 )
                 response.raise_for_status()
                 data = response.json()
+                
+                # Update thread_id from response
+                if "thread_id" in data:
+                    self.thread_id = data["thread_id"]
+                    
                 print("\r" + " " * len(spinner_text) + "\r", end="", flush=True)  # Clear spinner
             
             return data["response"], data.get("tools_used", [])
@@ -223,10 +262,18 @@ class ChatbotClient:
         if self.console and RICH_AVAILABLE:
             self.console.print("🤖 LangGraph Chatbot CLI Client", style="bold blue")
             self.console.print("Type 'exit' or 'quit' to end the session")
+            self.console.print("\nCommands:", style="bold")
+            self.console.print("  /new     - Start a new conversation thread")
+            self.console.print("  /thread  - Show current thread ID")
+            self.console.print("  /help    - Show this help message")
             self.console.print("-" * 50)
         else:
             print("🤖 LangGraph Chatbot CLI Client")
             print("Type 'exit' or 'quit' to end the session")
+            print("\nCommands:")
+            print("  /new     - Start a new conversation thread")
+            print("  /thread  - Show current thread ID")
+            print("  /help    - Show this help message")
             print("-" * 50)
         
         conversation_history = []
@@ -238,6 +285,62 @@ class ChatbotClient:
                 if user_input.lower() in ['exit', 'quit']:
                     print("Goodbye!")
                     break
+                
+                # Handle slash commands
+                if user_input.startswith('/'):
+                    command = user_input.lower().strip()
+                    
+                    if command == '/new':
+                        # Reset thread for new conversation
+                        self.thread_id = None
+                        conversation_history = []
+                        if self.console and RICH_AVAILABLE:
+                            self.console.print("\n🔄 Started new conversation thread", style="bold green")
+                            self.console.print("-" * 50)
+                        else:
+                            print("\n🔄 Started new conversation thread")
+                            print("-" * 50)
+                        continue
+                    
+                    elif command == '/thread':
+                        # Show current thread ID
+                        if self.thread_id:
+                            if self.console and RICH_AVAILABLE:
+                                self.console.print(f"\n📍 Current thread ID: {self.thread_id}", style="cyan")
+                            else:
+                                print(f"\n📍 Current thread ID: {self.thread_id}")
+                        else:
+                            if self.console and RICH_AVAILABLE:
+                                self.console.print("\n❌ No active thread. Send a message to start one.", style="yellow")
+                            else:
+                                print("\n❌ No active thread. Send a message to start one.")
+                        continue
+                    
+                    elif command == '/help':
+                        # Show help message
+                        if self.console and RICH_AVAILABLE:
+                            self.console.print("\nAvailable commands:", style="bold")
+                            self.console.print("  /new     - Start a new conversation thread")
+                            self.console.print("  /thread  - Show current thread ID")
+                            self.console.print("  /help    - Show this help message")
+                            self.console.print("\nType 'exit' or 'quit' to end the session")
+                        else:
+                            print("\nAvailable commands:")
+                            print("  /new     - Start a new conversation thread")
+                            print("  /thread  - Show current thread ID")
+                            print("  /help    - Show this help message")
+                            print("\nType 'exit' or 'quit' to end the session")
+                        continue
+                    
+                    else:
+                        # Unknown command
+                        if self.console and RICH_AVAILABLE:
+                            self.console.print(f"\n❌ Unknown command: {command}", style="red")
+                            self.console.print("Type /help for available commands", style="dim")
+                        else:
+                            print(f"\n❌ Unknown command: {command}")
+                            print("Type /help for available commands")
+                        continue
                 
                 if not user_input:
                     continue
@@ -264,6 +367,13 @@ class ChatbotClient:
                 
                 # Add bot response to history (original unformatted response)
                 conversation_history.append({"role": "assistant", "content": response})
+                
+                # Show thread_id in interactive mode (subtle, only after first message)
+                if self.thread_id and len(conversation_history) == 2:  # After first exchange
+                    if self.console and RICH_AVAILABLE:
+                        self.console.print(f"\n[dim]Thread ID: {self.thread_id[:8]}...[/dim]", style="dim")
+                    else:
+                        print(f"\n[Thread ID: {self.thread_id[:8]}...]")
                 
             except KeyboardInterrupt:
                 print("\nGoodbye!")

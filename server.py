@@ -1,24 +1,28 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from fastapi.responses import Response, StreamingResponse
-from typing import List, Dict
+from typing import List, Dict, Optional
 import json
 import io
+import uuid
 from PIL import Image, ImageDraw, ImageFont
 
-from agents.chatbot_with_tools import app as graph, all_tools
+from agents.chatbot_with_memory import app as graph, all_tools
 
 app = FastAPI(title="LangGraph Chatbot API")
 
 class ChatRequest(BaseModel):
     message: str
+    thread_id: Optional[str] = None
 
 class ChatResponse(BaseModel):
     response: str
     tools_used: List[str] = []
+    thread_id: Optional[str] = None
     
 class MessageHistory(BaseModel):
     messages: List[Dict[str, str]]
+    thread_id: Optional[str] = None
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -26,8 +30,17 @@ async def chat(request: ChatRequest):
     Chat with the LangGraph chatbot
     """
     try:
-        # Invoke the graph with the user message
-        result = graph.invoke({"messages": [{"role": "user", "content": request.message}]})
+        # Generate thread_id if not provided
+        thread_id = request.thread_id or str(uuid.uuid4())
+        
+        # Create config with thread_id for memory
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        # Invoke the graph with the user message and config
+        result = graph.invoke(
+            {"messages": [{"role": "user", "content": request.message}]},
+            config=config
+        )
         
         # Extract the assistant's response
         assistant_message = result["messages"][-1].content
@@ -43,7 +56,11 @@ async def chat(request: ChatRequest):
                     elif tool_name == 'get_weather':
                         tools_used.append('Get Weather')
         
-        return ChatResponse(response=assistant_message, tools_used=list(set(tools_used)))
+        return ChatResponse(
+            response=assistant_message, 
+            tools_used=list(set(tools_used)),
+            thread_id=thread_id
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
@@ -54,8 +71,22 @@ async def chat_stream(request: ChatRequest):
     """
     try:
         def generate():
-            # Invoke the graph with the user message
-            result = graph.invoke({"messages": [{"role": "user", "content": request.message}]})
+            # Generate thread_id if not provided
+            import uuid
+            thread_id = request.thread_id or str(uuid.uuid4())
+            
+            # Create config with thread_id for memory
+            config = {"configurable": {"thread_id": thread_id}}
+            
+            # Send thread_id first
+            thread_data = {"type": "thread", "thread_id": thread_id}
+            yield f"data: {json.dumps(thread_data)}\n\n"
+            
+            # Invoke the graph with the user message and config
+            result = graph.invoke(
+                {"messages": [{"role": "user", "content": request.message}]},
+                config=config
+            )
             
             # Extract tools used
             tools_used = []
@@ -68,7 +99,7 @@ async def chat_stream(request: ChatRequest):
                         elif tool_name == 'get_weather':
                             tools_used.append('Get Weather')
             
-            # Send tools info first if any tools were used
+            # Send tools info if any tools were used
             if tools_used:
                 tools_data = {"type": "tools", "tools": list(set(tools_used))}
                 yield f"data: {json.dumps(tools_data)}\n\n"
@@ -102,8 +133,14 @@ async def chat_with_history(request: MessageHistory):
     Chat with the LangGraph chatbot with message history
     """
     try:
-        # Invoke the graph with the full message history
-        result = graph.invoke({"messages": request.messages})
+        # Generate thread_id if not provided
+        thread_id = request.thread_id or str(uuid.uuid4())
+        
+        # Create config with thread_id for memory
+        config = {"configurable": {"thread_id": thread_id}}
+        
+        # Invoke the graph with the full message history and config
+        result = graph.invoke({"messages": request.messages}, config=config)
         
         # Extract the assistant's response
         assistant_message = result["messages"][-1].content
@@ -119,7 +156,11 @@ async def chat_with_history(request: MessageHistory):
                     elif tool_name == 'get_weather':
                         tools_used.append('Get Weather')
         
-        return ChatResponse(response=assistant_message, tools_used=list(set(tools_used)))
+        return ChatResponse(
+            response=assistant_message, 
+            tools_used=list(set(tools_used)),
+            thread_id=thread_id
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
@@ -384,7 +425,7 @@ async def visualize_enhanced_graph():
         model_name = "Gemini 2.5 Flash"  # Default
         try:
             # Try to access the LLM model from the graph
-            from agents.chatbot_with_tools import llm
+            from agents.chatbot_with_memory import llm
             if hasattr(llm, 'model_name'):
                 model_name = llm.model_name
             elif hasattr(llm, 'model'):
