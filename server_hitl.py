@@ -7,8 +7,13 @@ from fastapi.responses import Response, StreamingResponse
 from typing import List, Dict, Optional, Any
 import json
 import uuid
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
 
 from agents.prebuilt_react_hitl import app as hitl_graph
+
 
 app = FastAPI(title="LangGraph HITL Chatbot API")
 

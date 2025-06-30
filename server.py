@@ -6,9 +6,14 @@ import json
 import io
 import uuid
 from PIL import Image, ImageDraw, ImageFont
+from dotenv import load_dotenv
+
+# Load environment variables first
+load_dotenv()
 
 from agents.prebuilt_react import app as graph
 from tools import all_tools
+
 
 app = FastAPI(title="LangGraph Chatbot API")
 
@@ -527,6 +532,7 @@ async def root():
             "GET /docs": "API documentation"
         }
     }
+
 
 if __name__ == "__main__":
     import uvicorn
