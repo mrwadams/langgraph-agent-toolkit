@@ -1,12 +1,14 @@
 # LangGraph Chatbot Reference Implementation
 
-A comprehensive reference implementation of a LangGraph-based chatbot with FastAPI server, CLI client, and modular tool system.
+A comprehensive reference implementation of a LangGraph-based chatbot with FastAPI server, CLI client, modular tool system, and Human-in-the-Loop (HITL) capabilities.
 
 ## Features
 
-- **Multiple Agent Implementations**: Basic chatbot and tool-enabled chatbot
-- **FastAPI Server**: RESTful API with streaming support and graph visualization
-- **Rich CLI Client**: Terminal client with markdown rendering, streaming, and tool indicators
+- **Prebuilt ReAct Agent**: Modern LangGraph prebuilt ReAct agent implementation
+- **Human-in-the-Loop (HITL)**: Tool call approval workflows with human oversight
+- **Multiple Agent Implementations**: Traditional, memory-enabled, and HITL variants
+- **FastAPI Servers**: Standard and HITL-specific API endpoints
+- **Rich CLI Clients**: Terminal clients with markdown rendering and approval workflows
 - **Modular Tools System**: Reusable tools organized by category
 - **Dynamic Visualization**: Enhanced graph visualization showing available tools
 - **Streaming Support**: Real-time response streaming with thinking animations
@@ -15,18 +17,24 @@ A comprehensive reference implementation of a LangGraph-based chatbot with FastA
 
 ```
 langgraph-chatbot/
-├── agents/                 # Agent implementations
+├── agents/                    # Agent implementations
 │   ├── __init__.py
-│   ├── chatbot.py         # Basic chatbot without tools
-│   └── chatbot_with_tools.py  # Advanced chatbot with tools
-├── tools/                 # Reusable tools module
+│   ├── chatbot_with_tools.py     # Traditional agent with tools
+│   ├── chatbot_with_memory.py    # Agent with conversation memory
+│   ├── chatbot_with_hitl.py      # Legacy HITL agent
+│   ├── prebuilt_react.py         # Modern prebuilt ReAct agent ⭐
+│   └── prebuilt_react_hitl.py    # HITL prebuilt ReAct agent ⭐
+├── tools/                     # Reusable tools module
 │   ├── __init__.py
 │   ├── README.md
-│   ├── search.py          # Google search tool
-│   └── weather.py         # Weather tool
-├── server.py              # FastAPI server
-├── cli_client.py          # Rich CLI client
-├── test_search.py         # Search functionality tests
+│   ├── search.py                 # Google search tool
+│   └── weather.py                # Weather tool
+├── server.py                  # Main FastAPI server (port 8000)
+├── server_hitl.py             # HITL FastAPI server (port 8001) ⭐
+├── cli_client.py              # Standard CLI client
+├── cli_hitl_client.py         # HITL CLI client with approval workflow ⭐
+├── cli_hitl_test.py           # Automated HITL testing ⭐
+├── test_search.py             # Search functionality tests
 └── requirements.txt
 ```
 
@@ -48,14 +56,21 @@ GOOGLE_API_KEY=your_google_api_key_here
 
 ### 3. Start the Server
 
+**Standard Server (Prebuilt ReAct Agent):**
 ```bash
 python server.py
 ```
+Server runs at `http://localhost:8000`
 
-The server will start at `http://localhost:8000`
+**HITL Server (Human-in-the-Loop):**
+```bash
+python server_hitl.py
+```
+Server runs at `http://localhost:8001`
 
-### 4. Use the CLI Client
+### 4. Use the CLI Clients
 
+**Standard CLI Client:**
 ```bash
 # Interactive mode (default)
 python cli_client.py
@@ -67,20 +82,34 @@ python cli_client.py -m "What's the weather in London?"
 python cli_client.py --no-stream
 ```
 
+**HITL CLI Client (Human Approval Workflow):**
+```bash
+# Interactive mode with approval prompts
+python cli_hitl_client.py
+
+# Single message with approval
+python cli_hitl_client.py -m "Search for AI news"
+
+# Test HITL functionality
+python cli_hitl_test.py
+```
+
 ## API Endpoints
 
-### Chat Endpoints
-- `POST /chat` - Send a message to the chatbot
+### Standard Server Endpoints (Port 8000)
+- `POST /chat` - Send a message to the prebuilt ReAct agent
 - `POST /chat/stream` - Send a message with streaming response
 - `POST /chat/history` - Send conversation with message history
-
-### Visualization Endpoints
 - `GET /visualize` - Get basic graph visualization as PNG
 - `GET /visualize/enhanced` - Get enhanced visualization with tool information
 - `GET /visualize/info` - Get structured graph and tool information
-
-### Documentation
 - `GET /docs` - Interactive API documentation (Swagger UI)
+
+### HITL Server Endpoints (Port 8001)
+- `POST /chat` - Send a message to the HITL agent (may return interrupt)
+- `POST /approve` - Approve, reject, or edit a tool call
+- `GET /visualize` - Get HITL graph visualization as PNG
+- `GET /docs` - HITL API documentation
 
 ## Available Tools
 
@@ -96,18 +125,83 @@ python cli_client.py --no-stream
 
 ## Agent Implementations
 
-### Basic Chatbot (`agents/chatbot.py`)
-Simple conversational agent without tools:
-- Uses Gemini 2.5 Flash model
-- Basic question-answering capabilities
-- No external tool access
+### Prebuilt ReAct Agent (`agents/prebuilt_react.py`) ⭐
+Modern LangGraph prebuilt ReAct agent:
+- Uses LangGraph's `create_react_agent()` function
+- Automatic tool selection and execution
+- Gemini 2.5 Flash model integration
+- Structured output variant available
+- **Recommended for new projects**
 
-### Tool-Enabled Chatbot (`agents/chatbot_with_tools.py`)
-Advanced agent with tool capabilities:
-- Google Search integration
-- Weather information
-- Conditional tool execution
-- Dynamic tool selection based on user queries
+### HITL Prebuilt ReAct Agent (`agents/prebuilt_react_hitl.py`) ⭐
+Human-in-the-loop version with approval workflow:
+- Built on prebuilt ReAct agent foundation
+- Requires human approval for all tool executions
+- Supports approve/reject/edit workflows
+- Follows LangGraph's official HITL patterns
+- Perfect for sensitive or high-stakes applications
+
+### Traditional Agents
+- **Tool-Enabled Chatbot** (`chatbot_with_tools.py`): Traditional custom implementation
+- **Memory Chatbot** (`chatbot_with_memory.py`): Agent with conversation memory
+- **Legacy HITL** (`chatbot_with_hitl.py`): Older HITL implementation
+
+## Human-in-the-Loop (HITL) Workflows
+
+The HITL implementation provides human oversight for AI tool executions, following LangGraph's official patterns.
+
+### HITL Features
+- **Tool Call Interception**: All tool calls pause for human review
+- **Approval Workflow**: Three response options for each tool call:
+  - **Approve**: Execute tool with original arguments
+  - **Reject**: Cancel tool execution with explanation
+  - **Edit**: Modify tool arguments before execution
+- **Rich UI**: Visual approval prompts with clear tool information
+- **Persistent State**: Proper interrupt/resume using LangGraph checkpointers
+- **Thread Management**: Maintains conversation context across approvals
+
+### HITL Usage Example
+```bash
+# Start HITL server
+python server_hitl.py
+
+# Use HITL client (in another terminal)
+python cli_hitl_client.py
+
+# User: "What's the weather in Paris?"
+# → Tool approval prompt appears
+# → Human approves/rejects/edits
+# → Tool executes (if approved)
+# → Response delivered
+```
+
+### HITL API Workflow
+```python
+# 1. Send message
+POST /chat {"message": "Search for AI news"}
+
+# 2. Response with interrupt
+{
+  "interrupted": true,
+  "interrupt_data": {
+    "tool_name": "google_search",
+    "tool_args": {"query": "AI news"},
+    "message": "Requesting approval to search for: AI news"
+  }
+}
+
+# 3. Human decision
+POST /approve {
+  "action": "approve",  # or "reject" or "edit"
+  "thread_id": "abc123"
+}
+
+# 4. Final response
+{
+  "response": "Here are the latest AI news...",
+  "tools_used": ["Google Search"]
+}
+```
 
 ## CLI Client Features
 
