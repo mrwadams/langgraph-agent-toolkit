@@ -7,7 +7,8 @@ import io
 import uuid
 from PIL import Image, ImageDraw, ImageFont
 
-from agents.chatbot_with_memory import app as graph, all_tools
+from agents.prebuilt_react import app as graph
+from tools import all_tools
 
 app = FastAPI(title="LangGraph Chatbot API")
 
@@ -425,7 +426,7 @@ async def visualize_enhanced_graph():
         model_name = "Gemini 2.5 Flash"  # Default
         try:
             # Try to access the LLM model from the graph
-            from agents.chatbot_with_memory import llm
+            from agents.prebuilt_react import llm
             if hasattr(llm, 'model_name'):
                 model_name = llm.model_name
             elif hasattr(llm, 'model'):
