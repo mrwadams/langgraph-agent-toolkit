@@ -2,9 +2,12 @@ google-genai
 langgraph
 langchain[google-genai]
 langchain-google-community
+langchain-community
 python-dotenv
 fastapi
 uvicorn[standard]
 pydantic
 rich
 pillow
+psycopg2-binary
+sqlalchemy

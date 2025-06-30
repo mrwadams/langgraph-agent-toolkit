@@ -48,10 +48,18 @@ pip install -r requirements.txt
 
 ### 2. Environment Setup
 
-Create a `.env` file with your Google API key:
+Create a `.env` file with your API keys and database configuration:
 
 ```bash
+# Required for search functionality
 GOOGLE_API_KEY=your_google_api_key_here
+
+# Required for database tools (optional if not using database features)
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=your_database_name
+DB_USER=your_database_user
+DB_PASSWORD=your_database_password
 ```
 
 ### 3. Start the Server
@@ -122,6 +130,20 @@ python cli_hitl_test.py
 - **get_weather**: Get current weather for a specific city
   - Input: City name
   - Output: Weather description (mock implementation)
+
+### Database Tools
+- **list_database_tables**: List all available tables in the PostgreSQL database
+  - Input: None
+  - Output: Comma-separated list of table names
+- **get_database_schema**: Get schema information and sample rows for specified tables
+  - Input: Comma-separated list of table names
+  - Output: Detailed schema information including column types and sample data
+- **query_database**: Execute SELECT queries against the PostgreSQL database
+  - Input: SQL SELECT query string
+  - Output: Query results (read-only, security validated)
+- **check_database_query**: Validate SQL query syntax and safety before execution
+  - Input: SQL query string
+  - Output: Query validation status and feedback
 
 ## Agent Implementations
 
@@ -271,6 +293,11 @@ from tools.search import google_search
 
 ### Environment Variables
 - `GOOGLE_API_KEY`: Required for Google Search functionality
+- `DB_HOST`: PostgreSQL database host (default: localhost)
+- `DB_PORT`: PostgreSQL database port (default: 5432)
+- `DB_NAME`: PostgreSQL database name (required for database tools)
+- `DB_USER`: PostgreSQL database user (required for database tools)  
+- `DB_PASSWORD`: PostgreSQL database password (required for database tools)
 
 ### Server Configuration
 - Default port: 8000
