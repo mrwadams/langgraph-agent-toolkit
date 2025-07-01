@@ -11,7 +11,8 @@ load_dotenv()
 class DatabaseManager:
     """Manages PostgreSQL database connections and operations."""
     
-    def __init__(self):
+    def __init__(self, schema: str = None):
+        self.schema = schema
         self.db_url = self._build_connection_url()
         self.engine = None
         self.db = None
@@ -45,6 +46,11 @@ class DatabaseManager:
                 echo=False
             )
             self.db = SQLDatabase(self.engine)
+            
+            # Set schema search path if specified
+            if self.schema:
+                with self.engine.connect() as conn:
+                    conn.execute(text(f"SET search_path TO {self.schema}, public"))
         except Exception as e:
             raise ConnectionError(f"Failed to connect to database: {str(e)}")
     

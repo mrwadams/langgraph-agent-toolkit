@@ -26,9 +26,6 @@ class ChatResponse(BaseModel):
     tools_used: List[str] = []
     thread_id: Optional[str] = None
     
-class MessageHistory(BaseModel):
-    messages: List[Dict[str, str]]
-    thread_id: Optional[str] = None
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
@@ -88,64 +85,108 @@ async def chat_stream(request: ChatRequest):
             thread_data = {"type": "thread", "thread_id": thread_id}
             yield f"data: {json.dumps(thread_data)}\n\n"
             
-            # Invoke the graph with the user message and config
-            result = graph.invoke(
-                {"messages": [{"role": "user", "content": request.message}]},
-                config=config
-            )
+            # Stream the graph execution in real-time
+            tools_used = []
+            final_response = ""
+            seen_messages = 0  # Track how many messages we've seen
             
-            # Send debug messages showing the conversation flow
-            for i, message in enumerate(result["messages"]):
-                if hasattr(message, 'content') and message.content:
-                    # Send debug info about each message
+            # Use LangGraph's native streaming with debugging
+            stream_count = 0
+            for chunk in graph.stream(
+                {"messages": [{"role": "user", "content": request.message}]},
+                config=config,
+                stream_mode="values"
+            ):
+                stream_count += 1
+                
+                # Debug: Show what we're getting in each chunk
+                debug_data = {
+                    "type": "debug",
+                    "message": f"Stream chunk #{stream_count}: {type(chunk)} with keys: {list(chunk.keys()) if isinstance(chunk, dict) else 'not dict'}"
+                }
+                yield f"data: {json.dumps(debug_data)}\n\n"
+                
+                # chunk should be the state dict directly
+                if "messages" in chunk and chunk["messages"]:
+                    # Look at ALL messages, but only process new ones
+                    all_messages = chunk["messages"]
+                    new_messages = all_messages[seen_messages:]
+                    
                     debug_data = {
                         "type": "debug",
-                        "message": f"Step {i}: {type(message).__name__} - {message.content[:100]}..."
+                        "message": f"Total messages: {len(all_messages)}, New messages: {len(new_messages)}"
                     }
                     yield f"data: {json.dumps(debug_data)}\n\n"
-                
-                if hasattr(message, 'tool_calls') and message.tool_calls:
-                    for tool_call in message.tool_calls:
+                    
+                    for i, message in enumerate(new_messages):
+                        # Send debug info about each new message with more detail
+                        message_type = type(message).__name__
+                        has_tool_calls = hasattr(message, 'tool_calls') and message.tool_calls
+                        tool_calls_count = len(message.tool_calls) if has_tool_calls else 0
+                        
+                        # Also check for ToolMessage type which indicates tool execution results
+                        is_tool_message = message_type == 'ToolMessage'
+                        tool_call_id = getattr(message, 'tool_call_id', None) if is_tool_message else None
+                        
                         debug_data = {
-                            "type": "debug", 
-                            "message": f"Tool call: {tool_call.get('name', 'unknown')}"
+                            "type": "debug",
+                            "message": f"Message {seen_messages + i}: {message_type}, tool_calls: {tool_calls_count}, tool_call_id: {tool_call_id}, content: {message.content[:50] if hasattr(message, 'content') and message.content else 'None'}..."
                         }
                         yield f"data: {json.dumps(debug_data)}\n\n"
-            
-            # Extract tools used
-            tools_used = []
-            for message in result["messages"]:
-                if hasattr(message, 'tool_calls') and message.tool_calls:
-                    for tool_call in message.tool_calls:
-                        tool_name = tool_call.get('name', '')
-                        if tool_name == 'google_search':
-                            tools_used.append('Google Search')
-                        elif tool_name == 'get_weather':
-                            tools_used.append('Get Weather')
-                        elif 'database' in tool_name:
-                            tools_used.append(f'Database: {tool_name}')
-                        elif 'cic_alerts' in tool_name:
-                            tools_used.append(f'CIC Alerts: {tool_name}')
+                        
+                        # Track tool calls with more detail
+                        if has_tool_calls:
+                            for j, tool_call in enumerate(message.tool_calls):
+                                tool_name = tool_call.get('name', 'unknown')
+                                tool_args = tool_call.get('args', {})
+                                debug_data = {
+                                    "type": "debug", 
+                                    "message": f"Tool call {j}: {tool_name} with args: {str(tool_args)[:100]}..."
+                                }
+                                yield f"data: {json.dumps(debug_data)}\n\n"
+                                
+                                # Add to tools used list
+                                if tool_name == 'google_search':
+                                    tools_used.append('Google Search')
+                                elif tool_name == 'get_weather':
+                                    tools_used.append('Get Weather')
+                                elif 'database' in tool_name:
+                                    tools_used.append(f'Database: {tool_name}')
+                        
+                        # Track tool responses
+                        if is_tool_message:
+                            debug_data = {
+                                "type": "debug",
+                                "message": f"Tool response for {tool_call_id}: {message.content[:100]}..."
+                            }
+                            yield f"data: {json.dumps(debug_data)}\n\n"
+                        
+                        # Check if this is the final AI response
+                        if hasattr(message, 'content') and message.content and \
+                           message_type == 'AIMessage' and not has_tool_calls:
+                            final_response = message.content
+                    
+                    # Update our count of seen messages
+                    seen_messages = len(all_messages)
             
             # Send tools info if any tools were used
             if tools_used:
                 tools_data = {"type": "tools", "tools": list(set(tools_used))}
                 yield f"data: {json.dumps(tools_data)}\n\n"
             
-            # Extract the assistant's response and stream it
-            assistant_message = result["messages"][-1].content
-            
-            # Split response into chunks for streaming effect
-            words = assistant_message.split()
-            chunk_size = 3  # Send 3 words at a time
-            
-            for i in range(0, len(words), chunk_size):
-                chunk = " ".join(words[i:i + chunk_size])
-                if i + chunk_size < len(words):
-                    chunk += " "
+            # Stream the final response if we have one
+            if final_response:
+                # Split response into chunks for streaming effect
+                words = final_response.split()
+                chunk_size = 3  # Send 3 words at a time
                 
-                chunk_data = {"type": "content", "content": chunk}
-                yield f"data: {json.dumps(chunk_data)}\n\n"
+                for i in range(0, len(words), chunk_size):
+                    chunk = " ".join(words[i:i + chunk_size])
+                    if i + chunk_size < len(words):
+                        chunk += " "
+                    
+                    chunk_data = {"type": "content", "content": chunk}
+                    yield f"data: {json.dumps(chunk_data)}\n\n"
             
             # Send end marker
             end_data = {"type": "end"}
@@ -155,42 +196,6 @@ async def chat_stream(request: ChatRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
-@app.post("/chat/history", response_model=ChatResponse)
-async def chat_with_history(request: MessageHistory):
-    """
-    Chat with the LangGraph chatbot with message history
-    """
-    try:
-        # Generate thread_id if not provided
-        thread_id = request.thread_id or str(uuid.uuid4())
-        
-        # Create config with thread_id for memory
-        config = {"configurable": {"thread_id": thread_id}}
-        
-        # Invoke the graph with the full message history and config
-        result = graph.invoke({"messages": request.messages}, config=config)
-        
-        # Extract the assistant's response
-        assistant_message = result["messages"][-1].content
-        
-        # Extract tools used from all messages
-        tools_used = []
-        for message in result["messages"]:
-            if hasattr(message, 'tool_calls') and message.tool_calls:
-                for tool_call in message.tool_calls:
-                    tool_name = tool_call.get('name', '')
-                    if tool_name == 'google_search':
-                        tools_used.append('Google Search')
-                    elif tool_name == 'get_weather':
-                        tools_used.append('Get Weather')
-        
-        return ChatResponse(
-            response=assistant_message, 
-            tools_used=list(set(tools_used)),
-            thread_id=thread_id
-        )
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing chat: {str(e)}")
 
 @app.get("/visualize")
 async def visualize_graph():
@@ -547,7 +552,6 @@ async def root():
         "endpoints": {
             "POST /chat": "Send a message to the chatbot",
             "POST /chat/stream": "Send a message to the chatbot with streaming response",
-            "POST /chat/history": "Send a conversation with message history",
             "GET /visualize": "Get the graph visualization as PNG",
             "GET /visualize/enhanced": "Get enhanced graph visualization with tool info",
             "GET /visualize/info": "Get structured graph and tool information",

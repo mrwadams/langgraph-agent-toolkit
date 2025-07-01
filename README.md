@@ -127,8 +127,7 @@ python cli_hitl_test.py
 
 ### Standard Server Endpoints (Port 8000)
 - `POST /chat` - Send a message to the prebuilt ReAct agent
-- `POST /chat/stream` - Send a message with streaming response
-- `POST /chat/history` - Send conversation with message history
+- `POST /chat/stream` - Send a message with streaming response and debug output
 - `GET /visualize` - Get basic graph visualization as PNG
 - `GET /visualize/enhanced` - Get enhanced visualization with tool information
 - `GET /visualize/info` - Get structured graph and tool information

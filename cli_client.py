@@ -224,47 +224,6 @@ class ChatbotClient:
             else:
                 return cleaned_text
     
-    def chat_with_history(self, messages: List[Dict[str, str]]) -> tuple[str, list]:
-        """Send conversation with message history"""
-        try:
-            # Show thinking spinner
-            spinner_text = "Thinking..."
-            request_data = {"messages": messages}
-            if self.thread_id:
-                request_data["thread_id"] = self.thread_id
-                
-            if self.console and RICH_AVAILABLE:
-                with Live(Spinner("dots", text=spinner_text), console=self.console, refresh_per_second=10):
-                    response = requests.post(
-                        f"{self.base_url}/chat/history",
-                        json=request_data,
-                        headers={"Content-Type": "application/json"}
-                    )
-                    response.raise_for_status()
-                    data = response.json()
-                    
-                    # Update thread_id from response
-                    if "thread_id" in data:
-                        self.thread_id = data["thread_id"]
-            else:
-                print(f"{spinner_text}", end="", flush=True)
-                response = requests.post(
-                    f"{self.base_url}/chat/history",
-                    json=request_data,
-                    headers={"Content-Type": "application/json"}
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                # Update thread_id from response
-                if "thread_id" in data:
-                    self.thread_id = data["thread_id"]
-                    
-                print("\r" + " " * len(spinner_text) + "\r", end="", flush=True)  # Clear spinner
-            
-            return data["response"], data.get("tools_used", [])
-        except requests.RequestException as e:
-            return f"Error: {e}", []
     
     def interactive_chat(self):
         """Start an interactive chat session"""
@@ -357,20 +316,13 @@ class ChatbotClient:
                 # Add user message to history
                 conversation_history.append({"role": "user", "content": user_input})
                 
-                # Get response using history
-                if len(conversation_history) == 1:
-                    # First message, use simple chat endpoint
-                    if self.streaming:
-                        response, tools_used = self.chat(user_input)
-                        # Streaming already handled the display
-                    else:
-                        response, tools_used = self.chat(user_input)
-                        # Format and display the response
-                        formatted_response = self._format_response(response, tools_used)
-                        self._display_response(formatted_response)
+                # Get response using chat endpoint (streaming maintains context via thread_id)
+                if self.streaming:
+                    response, tools_used = self.chat(user_input)
+                    # Streaming already handled the display
                 else:
-                    # Use history endpoint for context (no streaming for history yet)
-                    response, tools_used = self.chat_with_history(conversation_history)
+                    response, tools_used = self.chat(user_input)
+                    # Format and display the response
                     formatted_response = self._format_response(response, tools_used)
                     self._display_response(formatted_response)
                 
