@@ -22,11 +22,12 @@ except ImportError:
 DEFAULT_BASE_URL = "http://localhost:8000"
 
 class ChatbotClient:
-    def __init__(self, base_url: str = DEFAULT_BASE_URL, streaming: bool = True):
+    def __init__(self, base_url: str = DEFAULT_BASE_URL, streaming: bool = True, debug: bool = False):
         self.base_url = base_url.rstrip('/')
         self.console = Console() if RICH_AVAILABLE else None
         self.streaming = streaming
         self.thread_id = None  # Store thread_id for conversation continuity
+        self.debug = debug  # Show agent reasoning
     
     def test_connection(self) -> bool:
         """Test if the API server is running"""
@@ -132,6 +133,14 @@ class ChatbotClient:
                                 # Update thread_id from stream
                                 if "thread_id" in data:
                                     self.thread_id = data["thread_id"]
+                            
+                            elif data.get("type") == "debug" and self.debug:
+                                # Show debug/reasoning messages if debug mode is on
+                                debug_msg = data.get("message", "")
+                                if self.console and RICH_AVAILABLE:
+                                    self.console.print(f"[DEBUG] {debug_msg}", style="dim cyan")
+                                else:
+                                    print(f"[DEBUG] {debug_msg}")
                             
                             elif data.get("type") == "tools":
                                 tools_used = data.get("tools", [])
@@ -388,10 +397,11 @@ def main():
     parser.add_argument("--interactive", "-i", action="store_true", help="Start interactive chat session")
     parser.add_argument("--test", "-t", action="store_true", help="Test API connection")
     parser.add_argument("--no-stream", action="store_true", help="Disable streaming output")
+    parser.add_argument("--debug", "-d", action="store_true", help="Show agent reasoning/debug info")
     
     args = parser.parse_args()
     
-    client = ChatbotClient(args.url, streaming=not args.no_stream)
+    client = ChatbotClient(args.url, streaming=not args.no_stream, debug=args.debug)
     
     # Test connection first
     if not client.test_connection():

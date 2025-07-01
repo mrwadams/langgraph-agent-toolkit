@@ -94,6 +94,24 @@ async def chat_stream(request: ChatRequest):
                 config=config
             )
             
+            # Send debug messages showing the conversation flow
+            for i, message in enumerate(result["messages"]):
+                if hasattr(message, 'content') and message.content:
+                    # Send debug info about each message
+                    debug_data = {
+                        "type": "debug",
+                        "message": f"Step {i}: {type(message).__name__} - {message.content[:100]}..."
+                    }
+                    yield f"data: {json.dumps(debug_data)}\n\n"
+                
+                if hasattr(message, 'tool_calls') and message.tool_calls:
+                    for tool_call in message.tool_calls:
+                        debug_data = {
+                            "type": "debug", 
+                            "message": f"Tool call: {tool_call.get('name', 'unknown')}"
+                        }
+                        yield f"data: {json.dumps(debug_data)}\n\n"
+            
             # Extract tools used
             tools_used = []
             for message in result["messages"]:
@@ -104,6 +122,10 @@ async def chat_stream(request: ChatRequest):
                             tools_used.append('Google Search')
                         elif tool_name == 'get_weather':
                             tools_used.append('Get Weather')
+                        elif 'database' in tool_name:
+                            tools_used.append(f'Database: {tool_name}')
+                        elif 'cic_alerts' in tool_name:
+                            tools_used.append(f'CIC Alerts: {tool_name}')
             
             # Send tools info if any tools were used
             if tools_used:
