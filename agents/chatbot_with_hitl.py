@@ -28,7 +28,7 @@ try:
     llm_with_tools = llm.bind_tools(all_tools)
 except NotImplementedError:
     print("Warning: Tool binding not supported for this LLM provider.")
-    print("This agent requires tool support. Please use Gemini provider.")
+    print("This agent requires tool support. Please use an alternative provider.")
     raise
 
 # Create a memory saver

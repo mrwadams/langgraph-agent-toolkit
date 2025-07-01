@@ -16,9 +16,12 @@ A comprehensive reference implementation of a LangGraph-based chatbot with FastA
 
 ## LLM Configuration
 
-This project supports both Gemini (default) and custom LLM providers.
+This project supports both Gemini (default) and Vertex AI Gemini for enterprise deployment.
 
-To use a custom LLM, simply set `USE_CUSTOM_LLM=true` in your environment.
+- **Gemini** (default): Uses Google's Gemini API for development and testing
+- **Vertex AI Gemini**: Enterprise-grade deployment using Google Cloud Vertex AI
+
+To use Vertex AI Gemini, simply set `USE_CUSTOM_LLM=true` in your environment.
 
 ## Project Structure
 
@@ -37,7 +40,7 @@ langgraph-chatbot/
 │   ├── search.py                 # Google search tool
 │   ├── weather.py                # Weather tool
 │   └── database.py               # PostgreSQL database tools
-├── custom_llm.py              # Custom LLM wrapper for enterprise
+├── custom_llm.py              # Vertex AI Gemini wrapper for enterprise
 ├── llm_factory.py             # Simple LLM selection factory
 ├── server.py                  # Main FastAPI server (port 8000)
 ├── server_hitl.py             # HITL FastAPI server (port 8001)
@@ -71,12 +74,13 @@ DB_NAME=your_database_name
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
 
-# Custom LLM Configuration (optional - only needed for enterprise deployment)
+# Vertex AI Configuration (optional - only needed for enterprise deployment)
 USE_CUSTOM_LLM=false
-CUSTOM_LLM_ENDPOINT=https://your-enterprise-api.com/v1/chat
-CUSTOM_LLM_API_KEY=your-api-key
-CUSTOM_LLM_MODEL=custom-enterprise-llm
-CUSTOM_LLM_TIMEOUT=60
+CUSTOM_LLM_MODEL=gemini-1.5-pro
+CUSTOM_LLM_TEMPERATURE=0.7
+CUSTOM_LLM_MAX_TOKENS=2048
+CUSTOM_LLM_TOP_P=0.95
+CUSTOM_LLM_TOP_K=40
 ```
 
 ### 3. Start the Server
