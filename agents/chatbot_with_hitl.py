@@ -1,10 +1,17 @@
 from typing import TypedDict, Annotated
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from dotenv import load_dotenv
+import os
+import sys
+
+# Add parent directory to path to import llm_providers
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import LLM provider
+from llm_factory import get_llm
 
 # Import tools from tools module
 from tools import all_tools
@@ -13,15 +20,16 @@ load_dotenv()
 
 # --- SETUP LLM AND BIND ALL TOOLS AND MEMORY ---
 
-# Initialize the main Gemini model (without search for general conversation)
-# Disable parallel tool calling for human-in-the-loop
-llm = ChatGoogleGenerativeAI(
-    model="gemini-2.5-flash",
-    model_kwargs={"tool_config": {"function_calling_config": {"mode": "ANY"}}}
-)
+# Initialize the LLM using the provider system
+llm = get_llm()  # Uses environment variable or defaults to Gemini
 
 # Bind the consolidated list of tools to the LLM
-llm_with_tools = llm.bind_tools(all_tools)
+try:
+    llm_with_tools = llm.bind_tools(all_tools)
+except NotImplementedError:
+    print("Warning: Tool binding not supported for this LLM provider.")
+    print("This agent requires tool support. Please use Gemini provider.")
+    raise
 
 # Create a memory saver
 memory = MemorySaver()

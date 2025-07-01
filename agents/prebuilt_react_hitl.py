@@ -7,9 +7,16 @@ from langgraph.prebuilt import create_react_agent
 from langgraph.types import interrupt, Command
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
-from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.tools import tool as create_tool
 from langchain_core.tools import BaseTool
+import os
+import sys
+
+# Add parent directory to path to import llm_providers
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import LLM provider
+from llm_factory import get_llm
 
 # Import base tools from tools module (excluding human_assistance)
 from tools.search import google_search
@@ -216,8 +223,8 @@ class AnswerFormat(BaseModel):
 
 # --- CREATE HITL REACT AGENT ---
 
-# Initialize LLM
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash")
+# Initialize the LLM using the provider system
+llm = get_llm()  # Uses environment variable or defaults to Gemini
 
 # Import memory saver for checkpointing
 from langgraph.checkpoint.memory import MemorySaver
@@ -226,43 +233,53 @@ from langgraph.checkpoint.memory import MemorySaver
 checkpointer = MemorySaver()
 
 # Create the HITL ReAct agent with checkpointer
-app = create_react_agent(
-    llm,
-    tools=hitl_tools,
-    checkpointer=checkpointer,
-    prompt="""You are a helpful AI assistant with human oversight capabilities. 
-    Use the available tools to help answer questions when needed.
-    
-    Available tools:
-    - For weather questions, use get_weather_hitl
-    - For web searches, use google_search_hitl  
-    - For database operations, use:
-      * list_database_tables_hitl to see available tables
-      * get_database_schema_hitl to get table schemas
-      * query_database_hitl to execute SELECT queries
-      * check_database_query_hitl to validate queries
-    
-    Note that all tool calls require human approval before execution."""
-)
+try:
+    app = create_react_agent(
+        llm,
+        tools=hitl_tools,
+        checkpointer=checkpointer,
+        prompt="""You are a helpful AI assistant with human oversight capabilities. 
+        Use the available tools to help answer questions when needed.
+        
+        Available tools:
+        - For weather questions, use get_weather_hitl
+        - For web searches, use google_search_hitl  
+        - For database operations, use:
+          * list_database_tables_hitl to see available tables
+          * get_database_schema_hitl to get table schemas
+          * query_database_hitl to execute SELECT queries
+          * check_database_query_hitl to validate queries
+        
+        Note that all tool calls require human approval before execution."""
+    )
+except NotImplementedError:
+    print("Warning: Tool binding not supported for this LLM provider.")
+    print("This agent requires tool support. Please use Gemini provider.")
+    raise
 
 # Create structured output version
-structured_app = create_react_agent(
-    llm,
-    tools=hitl_tools,
-    checkpointer=checkpointer,
-    prompt="""You are a helpful AI assistant with human oversight capabilities.
-    Use the available tools to help answer questions when needed.
-    Always provide structured responses when possible.
-    
-    Available tools:
-    - For weather questions, use get_weather_hitl
-    - For web searches, use google_search_hitl  
-    - For database operations, use:
-      * list_database_tables_hitl to see available tables
-      * get_database_schema_hitl to get table schemas
-      * query_database_hitl to execute SELECT queries
-      * check_database_query_hitl to validate queries
-    
-    Include information about which tools were used in your structured response.""",
-    response_format=AnswerFormat
-)
+try:
+    structured_app = create_react_agent(
+        llm,
+        tools=hitl_tools,
+        checkpointer=checkpointer,
+        prompt="""You are a helpful AI assistant with human oversight capabilities.
+        Use the available tools to help answer questions when needed.
+        Always provide structured responses when possible.
+        
+        Available tools:
+        - For weather questions, use get_weather_hitl
+        - For web searches, use google_search_hitl  
+        - For database operations, use:
+          * list_database_tables_hitl to see available tables
+          * get_database_schema_hitl to get table schemas
+          * query_database_hitl to execute SELECT queries
+          * check_database_query_hitl to validate queries
+        
+        Include information about which tools were used in your structured response.""",
+        response_format=AnswerFormat
+    )
+except NotImplementedError:
+    print("Warning: Tool binding not supported for this LLM provider.")
+    print("This agent requires tool support. Please use Gemini provider.")
+    raise

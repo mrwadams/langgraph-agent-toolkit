@@ -12,6 +12,13 @@ A comprehensive reference implementation of a LangGraph-based chatbot with FastA
 - **Modular Tools System**: Reusable tools organized by category
 - **Dynamic Visualization**: Enhanced graph visualization showing available tools
 - **Streaming Support**: Real-time response streaming with thinking animations
+- **Custom LLM Support**: Easy integration with enterprise LLMs as drop-in replacement for Gemini
+
+## LLM Configuration
+
+This project supports both Gemini (default) and custom LLM providers.
+
+To use a custom LLM, simply set `USE_CUSTOM_LLM=true` in your environment.
 
 ## Project Structure
 
@@ -22,18 +29,21 @@ langgraph-chatbot/
 │   ├── chatbot_with_tools.py     # Traditional agent with tools
 │   ├── chatbot_with_memory.py    # Agent with conversation memory
 │   ├── chatbot_with_hitl.py      # Legacy HITL agent
-│   ├── prebuilt_react.py         # Modern prebuilt ReAct agent ⭐
-│   └── prebuilt_react_hitl.py    # HITL prebuilt ReAct agent ⭐
+│   ├── prebuilt_react.py         # Modern prebuilt ReAct agent
+│   └── prebuilt_react_hitl.py    # HITL prebuilt ReAct agent
 ├── tools/                     # Reusable tools module
 │   ├── __init__.py
 │   ├── README.md
 │   ├── search.py                 # Google search tool
-│   └── weather.py                # Weather tool
+│   ├── weather.py                # Weather tool
+│   └── database.py               # PostgreSQL database tools
+├── custom_llm.py              # Custom LLM wrapper for enterprise
+├── llm_factory.py             # Simple LLM selection factory
 ├── server.py                  # Main FastAPI server (port 8000)
-├── server_hitl.py             # HITL FastAPI server (port 8001) ⭐
+├── server_hitl.py             # HITL FastAPI server (port 8001)
 ├── cli_client.py              # Standard CLI client
-├── cli_hitl_client.py         # HITL CLI client with approval workflow ⭐
-├── cli_hitl_test.py           # Automated HITL testing ⭐
+├── cli_hitl_client.py         # HITL CLI client with approval workflow
+├── cli_hitl_test.py           # Automated HITL testing
 ├── test_search.py             # Search functionality tests
 └── requirements.txt
 ```
@@ -60,6 +70,13 @@ DB_PORT=5432
 DB_NAME=your_database_name
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
+
+# Custom LLM Configuration (optional - only needed for enterprise deployment)
+USE_CUSTOM_LLM=false
+CUSTOM_LLM_ENDPOINT=https://your-enterprise-api.com/v1/chat
+CUSTOM_LLM_API_KEY=your-api-key
+CUSTOM_LLM_MODEL=custom-enterprise-llm
+CUSTOM_LLM_TIMEOUT=60
 ```
 
 ### 3. Start the Server
