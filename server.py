@@ -130,7 +130,7 @@ async def chat_stream(request: ChatRequest):
                         
                         debug_data = {
                             "type": "debug",
-                            "message": f"Message {seen_messages + i}: {message_type}, tool_calls: {tool_calls_count}, tool_call_id: {tool_call_id}, content: {message.content[:50] if hasattr(message, 'content') and message.content else 'None'}..."
+                            "message": f"Message {seen_messages + i}: {message_type}, tool_calls: {tool_calls_count}, tool_call_id: {tool_call_id}, content: {message.content[:200] if hasattr(message, 'content') and message.content else 'None'}..."
                         }
                         yield f"data: {json.dumps(debug_data)}\n\n"
                         
@@ -141,7 +141,7 @@ async def chat_stream(request: ChatRequest):
                                 tool_args = tool_call.get('args', {})
                                 debug_data = {
                                     "type": "debug", 
-                                    "message": f"Tool call {j}: {tool_name} with args: {str(tool_args)[:100]}..."
+                                    "message": f"Tool call {j}: {tool_name} with args: {str(tool_args)[:300]}..."
                                 }
                                 yield f"data: {json.dumps(debug_data)}\n\n"
                                 
@@ -157,7 +157,7 @@ async def chat_stream(request: ChatRequest):
                         if is_tool_message:
                             debug_data = {
                                 "type": "debug",
-                                "message": f"Tool response for {tool_call_id}: {message.content[:100]}..."
+                                "message": f"Tool response for {tool_call_id}: {message.content[:500]}..."
                             }
                             yield f"data: {json.dumps(debug_data)}\n\n"
                         
