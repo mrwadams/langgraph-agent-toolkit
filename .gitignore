@@ -1,3 +1,11 @@
 venv/
 .env
 __pycache__/
+
+# Test files
+agents_test/
+tools_test/
+test/
+
+# Custom LLM
+custom_llm.py
