@@ -2,6 +2,7 @@ google-genai
 langgraph
 langchain[google-genai]
 langchain-google-community
+langchain-google-vertexai
 langchain-community
 python-dotenv
 fastapi

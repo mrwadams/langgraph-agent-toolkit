@@ -3,8 +3,8 @@ from dotenv import load_dotenv
 
 # Import tools from tools module
 from tools import all_tools
-# Import LLM factory
-from llm_factory import get_llm
+# Import LLM provider
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 from langgraph.graph import StateGraph, END
 from langgraph.graph.message import add_messages
@@ -14,8 +14,8 @@ load_dotenv()
 
 # --- SETUP LLM AND BIND ALL TOOLS ---
 
-# Initialize the LLM (will use Gemini unless USE_CUSTOM_LLM=true)
-llm = get_llm()
+# Initialize the LLM
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
 
 # Bind the consolidated list of tools to the LLM
 llm_with_tools = llm.bind_tools(all_tools)

@@ -11,7 +11,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # Import LLM provider
-from llm_factory import get_llm
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 # Import tools from tools module
 from tools import all_tools
@@ -20,8 +20,8 @@ load_dotenv()
 
 # --- SETUP LLM AND BIND ALL TOOLS AND MEMORY ---
 
-# Initialize the LLM using the provider system
-llm = get_llm()  # Uses environment variable or defaults to Gemini
+# Initialize the LLM
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash")
 
 # Bind the consolidated list of tools to the LLM
 try:
